@@ -1,0 +1,148 @@
+//Francisco Martinez Balian Segundo Parcial SPD Div B
+
+//Sensor temperatura
+#define SENSOR_TEMP A0
+int lecturaSensor;
+float temperatura;
+
+//Control remoto
+#include <IRremote.h>
+#define SENSOR_IR 11
+#define BOTON_APAGADO 0xFF00BF00
+bool flagPrendido = false;
+#define VERANO 0xEF10BF00
+#define OTONIO 0xEE11BF00
+#define INVIERNO 0xED12BF00
+#define PRIMAVERA 0xEB14BF00
+
+//Display LCD
+#include <LiquidCrystal.h>
+LiquidCrystal displayLCD(8, 9, 4, 5, 6, 7);
+char texto[20];
+
+//Servo y leds
+#include <Servo.h>
+Servo myServo;
+#define LED_ROJO 13
+#define LED_VERDE 12
+
+void setup()
+{
+  //Control remoto
+  IrReceiver.begin(SENSOR_IR, DISABLE_LED_FEEDBACK);
+  //Display LCD
+  displayLCD.begin(16, 2);
+  //Servo y leds
+  myServo.attach(10,400,7000);
+  pinMode(LED_ROJO, OUTPUT);
+  pinMode(LED_VERDE, OUTPUT);
+}
+
+void loop()
+{ 
+  if(IrReceiver.decode())
+  {
+    detectarBotonApagado(IrReceiver.decodedIRData.decodedRawData);
+  }
+
+  if(flagPrendido)
+  {
+    prenderDisplay();
+    
+    temperatura = obtenerTemperatura(-40, 125);
+    informarClima(IrReceiver.decodedIRData.decodedRawData);  
+  }
+  else
+  {
+    apagarDisplay();
+    apagarLed(LED_ROJO);
+    apagarLed(LED_VERDE);
+  }
+}
+
+void detectarBotonApagado(float botonPresionado)
+{
+  if(botonPresionado == BOTON_APAGADO)
+    {
+      flagPrendido = !flagPrendido;
+      displayLCD.clear();
+    }
+    IrReceiver.resume();
+}
+
+float obtenerTemperatura(int minTemp, int maxTemp)
+{
+  int lecturaDelSensor = analogRead(SENSOR_TEMP);
+  float temperaturaTomada = map(lecturaDelSensor, 20, 358, minTemp, maxTemp);
+  return temperaturaTomada;
+}
+
+void informarClima(float botonPresionado)
+{
+  if(botonPresionado == VERANO)
+  {
+    strcpy(texto, "Verano   ");
+    detectarIncendio(60, 00, 80);
+  }
+  else if(botonPresionado == OTONIO)
+  {
+    strcpy(texto, "Otonio   ");
+    detectarIncendio(40, 00, 80);
+  }
+  else if(botonPresionado == INVIERNO)
+  {
+    strcpy(texto, "Invierno  ");
+    detectarIncendio(30, 00, 80);
+  }
+  else if(botonPresionado == PRIMAVERA)
+  {
+    strcpy(texto, "Primavera");
+    detectarIncendio(50, 00, 80);
+  }
+}
+
+void detectarIncendio(float temperaturaMax, float minServo, float maxServo)
+{
+  if(temperatura > temperaturaMax)
+  {
+    displayLCD.setCursor(0, 0);
+    displayLCD.print("ALERTA");
+    displayLCD.setCursor(0, 1);
+    displayLCD.print("FUEGO DETECTADO");
+    myServo.write(minServo);
+    delay(50);
+    myServo.write(maxServo);
+    delay(50);
+    displayLCD.clear();
+    prenderLed(LED_ROJO);
+    apagarLed(LED_VERDE);
+  }
+  else
+  {
+    myServo.write(maxServo);
+    displayLCD.setCursor(0, 0);
+    displayLCD.print(texto);
+    displayLCD.setCursor(0, 1);
+    displayLCD.print(temperatura);
+    displayLCD.print(" grados ");
+    apagarLed(LED_ROJO);
+    prenderLed(LED_VERDE);
+  }
+}
+
+void apagarLed(int led)
+{
+  digitalWrite(led, LOW);
+}
+void prenderLed(int led)
+{
+  digitalWrite(led, HIGH);
+}
+void prenderDisplay()
+{
+  displayLCD.display();
+}
+void apagarDisplay()
+{
+  displayLCD.noDisplay();
+}
